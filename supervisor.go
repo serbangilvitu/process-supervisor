@@ -20,6 +20,7 @@ const max_wait_before_restart int = 3600
 var generateLogs bool
 var checkInterval, waitTime, maxAttempts int
 var processName string
+var processArgs string
 
 var restartAttempts int = 0
 
@@ -31,7 +32,7 @@ func checkErrAndExit(e error) {
 }
 
 func attemptRestart() {
-	cmd := exec.Command(processName)
+	cmd := exec.Command(processName, processArgs)
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {
 		log.WithFields(log.Fields{"processName": processName,
@@ -91,6 +92,7 @@ func init() {
 
 func main() {
 
+	flag.StringVar(&processArgs, "a", "", "Process arguments")
 	flag.IntVar(&checkInterval, "i", 5, "Check interval")
 	flag.BoolVar(&generateLogs, "l", false, "Generate Logs")
 	flag.StringVar(&processName, "p", "", "Process name")
