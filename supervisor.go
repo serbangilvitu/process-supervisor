@@ -4,7 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"time"
 
+	ps "github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -18,11 +21,40 @@ var generateLogs bool
 var checkInterval, waitTime, maxAttempts int
 var processName string
 
+var restartAttempts int = 0
+
 func checkErrAndExit(e error) {
 	if e != nil {
 		log.Fatal(e)
 		os.Exit(1)
 	}
+}
+
+func attemptRestart() {
+	cmd := exec.Command("./script.sh")
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		log.WithFields(log.Fields{"processName": processName,
+			"output": stdoutStderr}).
+			Error("Failed to start process")
+	}
+	restartAttempts++
+	if restartAttempts > maxAttempts {
+		checkErrAndExit(fmt.Errorf("Maximum restart attempts has been reached %d",
+			maxAttempts))
+	}
+}
+
+func findProcess() bool {
+	found := false
+	proc, _ := ps.Processes()
+	for _, v := range proc {
+		if v.Executable() == processName {
+			found = true
+			break
+		}
+	}
+	return found
 }
 
 func validateParams() {
@@ -62,11 +94,30 @@ func main() {
 	flag.IntVar(&checkInterval, "i", 5, "Check interval")
 	flag.BoolVar(&generateLogs, "l", false, "Generate Logs")
 	flag.StringVar(&processName, "p", "", "Process name")
-	flag.IntVar(&maxAttempts, "r", 5, "Maximum retries")
-	flag.IntVar(&waitTime, "t", 5, "Wait time before restart")
+	flag.IntVar(&maxAttempts, "r", 3, "Maximum retries")
+	flag.IntVar(&waitTime, "t", 10, "Wait time before restart")
 
 	flag.Parse()
 
 	validateParams()
 	displayParams()
+
+	if !generateLogs {
+		log.SetLevel(log.FatalLevel)
+	}
+
+	for {
+		if findProcess() {
+			log.WithFields(log.Fields{"processName": processName}).
+				Info("Process is running")
+			restartAttempts = 0
+			time.Sleep(time.Duration(checkInterval) * time.Second)
+		} else {
+			log.WithFields(log.Fields{"processName": processName}).
+				Warn("Process is NOT running")
+			attemptRestart()
+			time.Sleep(time.Duration(waitTime) * time.Second)
+		}
+	}
+
 }
