@@ -31,7 +31,7 @@ func checkErrAndExit(e error) {
 }
 
 func attemptRestart() {
-	cmd := exec.Command("./script.sh")
+	cmd := exec.Command(processName)
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {
 		log.WithFields(log.Fields{"processName": processName,
