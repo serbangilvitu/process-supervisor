@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"time"
@@ -11,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const config_file = "config.json"
 const min_check_interval int = 1
 const max_check_interval int = 3600
 
@@ -23,6 +26,15 @@ var processName string
 var processArgs string
 
 var restartAttempts int = 0
+
+type Config struct {
+	Processes []Process `json:"processes"`
+}
+
+type Process struct {
+	Command string `json:"command"`
+	Args    string `json:"args"`
+}
 
 func checkErrAndExit(e error) {
 	if e != nil {
@@ -87,7 +99,24 @@ func displayParams() {
 func init() {
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetOutput(os.Stdout)
-	log.SetLevel(log.WarnLevel)
+	log.SetLevel(log.InfoLevel)
+	jsonFile, err := os.Open(config_file)
+	if err != nil {
+		checkErrAndExit(err)
+	}
+	defer jsonFile.Close()
+	jsonData, err := ioutil.ReadAll(jsonFile)
+	if err != nil {
+		checkErrAndExit(err)
+	}
+
+	var config Config
+	json.Unmarshal(jsonData, &config)
+	for k, v := range config.Processes {
+		log.WithFields(log.Fields{"command": v.Command,
+			"args": v.Args}).
+			Infof("Listing process %v", k)
+	}
 }
 
 func main() {

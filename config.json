@@ -1,0 +1,8 @@
+{
+  "processes": [
+    {
+      "command": "sleep",
+      "args": "infinity"
+    }
+  ]
+}
